@@ -1,0 +1,16 @@
+{
+  "NodeConstraints": {
+    "Datain0": {
+      "shim": {
+        "column": 6,
+        "channel": 0
+      }
+    },
+    "Datain1": {
+      "shim": {
+        "column": 6,
+        "channel": 1
+      }
+    }
+  }
+}
