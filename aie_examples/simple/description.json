@@ -1,0 +1,21 @@
+{
+    "name" : "Simple",
+    "description" : "A simple 2-kernel graph with window based data communication.\nNote: This template works only for AIE Emulation and SW(x86) Emulation.",
+    "device" : [
+        "vck190",
+	"vck5000"
+    ],
+    "os" : [
+        "aie_runtime"
+    ],
+    "compiler" : {
+		
+	"additional-properties" : [
+            {"key" : "GRAPH_FILES", "values" : ["src/project.cpp"]},
+            {"key" : "LOG_LEVEL", "values" : ["Log Level(1)"]},
+            {"key" : "STACK_SIZE", "values" : [1024]},
+            {"key" : "HEAP_SIZE" , "values" : [1024]}
+		]
+	},
+	"linker" : {}
+}

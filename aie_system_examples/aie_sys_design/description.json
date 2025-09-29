@@ -1,0 +1,101 @@
+{
+    "name": "AI Engine, PL and PS System Design",
+    "description": [
+        "This design demonstrates integrating the AI Engine array with the Programmable Logic and the Processing System in a system. It performs hardware co-simulation and hardware implementation."
+    ], 
+    "keywords": [
+
+    ], 
+    "key_concepts": [
+
+    ], 
+    "os": [
+        "Linux",
+	"aie_runtime"
+    ], 
+	"platform_whitelist": [
+		"vck190"
+	],
+	"platform_blacklist": [
+		"zc",
+		"u50",
+		"u200",
+		"u250",
+		"samsung",
+		"vck5000",
+		"v70",
+		"vek280"
+	],
+	"v++": {
+		"package": {
+			"cflags": [
+				"--package.defer_aie_run"
+			]
+                }
+     	},
+        "host": {
+             "compiler": {
+              "sources": [
+                "src/host.cpp"
+                ],
+		"options": "-std=c++17"
+             }
+         },    
+	"aiecompiler": {
+		"compiler" : {
+			"includepaths": [
+				"./src"
+			]
+		}
+	},
+	"aiecontainers": [
+		{
+			"accelerators": [
+				{
+					"location": "src/graph.cpp",
+					"option": "-log-level=1 --stacksize=1024 --heapsize=1024",
+					"name": "libadf.a",
+					"aie_kernel_files": [
+						"src/hb27_2i.cc",
+						"src/classify.cc"
+					]
+				}
+			]
+		}	
+	],
+    "containers": [
+        {
+            "accelerators": [
+                {
+                    "name": "mm2s", 
+                    "location": "src/mm2s.cpp",
+                    "frequency": 300.0
+                }, 
+                {
+                    "name": "polar_clip", 
+                    "location": "src/polar_clip.cpp",
+                    "frequency": 300.0
+                },
+		{
+		    "name": "s2mm",
+		    "location": "src/s2mm.cpp",
+                    "frequency": 300.0
+		}
+            ], 
+            "name": "binary_container_1",
+	    "ldclflags": "--config PROJECT/system.cfg"
+        }
+    ], 
+    "launch": [
+        {
+            "cmd_args": "BUILD/binary_container_1.xclbin", 
+            "name": "Launch"
+        }
+    ], 
+    "contributors": [
+        {
+            "url": "http://www.xilinx.com", 
+            "group": "Xilinx"
+        }
+    ] 
+}

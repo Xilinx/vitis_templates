@@ -1,0 +1,21 @@
+###########################################################################
+# graph to demonstrate single buffer uses with margin copy.               #
+# Note: This template works only for AIE Emulation and SW(x86) Emulation. #
+#                                                                         #
+# To compile and simulate design please set following environment.        #
+###########################################################################
+
+1. Source Vitis settings.
+i.e. source <vitis_install>/setting64.csh
+
+2. Run following commands
+   a. make clean
+   b. make all PLATFORM=<path for platform to be used>
+
+# Targets 
+
+1. ./libadf.a  - Compiles graph with aiecompiler and generates libadf.a
+2. sim         - Simulate the graph with aiesimulator
+3. clean       - Cleans the project
+4. all         - Runs clean , ./libadf.a and sim targets
+5. incremental - Runs ./libadf.a and sim targets without clean.

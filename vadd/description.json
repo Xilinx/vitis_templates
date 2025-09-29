@@ -1,0 +1,93 @@
+{
+    "name": "Simple Vector Addition", 
+    "description": [
+        "This is simple example of vector addition to describe the usage of XRT Native API's. The kernel uses HLS Dataflow which allows the user to schedule multiple task together to achieve higher throughput."
+    ],
+    "flow": "vitis",
+    "keywords": [
+        "xrt::device",
+        "load_xclbin", 
+        "xrt::bo",
+        "xrt::kernel", 
+        "map", 
+        "sync",
+        "XCL_BO_SYNC_BO_TO_DEVICE",
+        "XCL_BO_SYNC_BO_FROM_DEVICE",
+        "gmem",
+        "#pragma HLS INTERFACE",
+        "dataflow",
+        "hls::stream"
+    ], 
+    "key_concepts": [
+        "XRT Native API",
+        "Task Level Parallelism"
+    ],
+    "platform_blacklist": [
+        "nodma"
+    ], 
+    "os": [
+        "Linux"
+    ], 
+    "runtime": [
+        "xrt"
+    ], 
+    "host": {
+        "host_exe": "hello_world_xrt",
+        "compiler": {
+            "sources": [
+                "./src/cmdlineparser.cpp",
+                "./src/logger.cpp",
+                "./src/host.cpp",
+		"./src/cmdlineparser.h",
+		"./src/logger.h"
+            ]
+        },
+        "linker" : {
+            "libraries" : ["uuid",
+                           "xrt_coreutil"
+               ]
+        }
+    },
+    "containers": [
+        {
+            "accelerators": [
+                {
+                    "name": "vadd", 
+                    "location": "src/vadd.cpp"
+                }
+            ], 
+            "name": "vadd"
+        }
+    ],
+    "launch": [
+        {
+            "cmd_args": "-x BUILD/vadd.xclbin", 
+            "name": "generic launch for all flows"
+        }
+    ], 
+    "contributors": [
+        {
+            "url": "http://www.xilinx.com", 
+            "group": "Xilinx, Inc."
+        }
+    ],
+    "testinfo": {
+        "disable": false,
+        "profile": "no",
+        "jobs": [
+            {
+                "index": 0,
+                "dependency": [],
+                "env": "",
+                "cmd": "",
+                "max_memory_MB": 32768,
+                "max_time_min": 300
+            }
+        ],
+        "targets": [
+            "vitis_hw_emu",
+            "vitis_hw"
+        ],
+        "category": "canary"
+    }
+}

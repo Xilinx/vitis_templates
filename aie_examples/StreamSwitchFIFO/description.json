@@ -1,0 +1,23 @@
+{
+    "name" : "Stream Switch FIFO",
+    "description" : "A graph to demonstrate use of Stream Switch FIFO to avoid deadlocks.\nNote: This template works only for AIE Emulation and SW(x86) Emulation.",
+    "device" : [
+        "vck190",
+	"vck5000"
+    ],
+    "os" : [
+        "aie_runtime"
+    ],
+    "compiler" : {
+		
+	"additional-properties" : [
+            {"key" : "GRAPH_FILES", "values" : ["src/graph.cpp"]}, 
+            {"key" : "LOG_LEVEL", "values" : ["Log Level(1)"]},
+            {"key" : "STACK_SIZE", "values" : [1024]},
+            {"key" : "HEAP_SIZE" , "values" : [1024]}
+
+
+		]
+	},
+	"linker" : {}
+}

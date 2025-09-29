@@ -1,0 +1,125 @@
+{
+    "name": "AIE-ML Engine, PL and PS System Design",
+    "description": [
+        "This design demonstrates integrating the AIE-ML Engine array with the Programmable Logic and the Processing System in a system. It performs hardware co-simulation and hardware implementation."
+    ], 
+    "keywords": [
+
+    ], 
+    "key_concepts": [
+
+    ], 
+    "os": [
+        "Linux",
+	"aie_runtime"
+    ], 
+	"platform_whitelist": [
+		"vek280"
+	],
+	"platform_blacklist": [
+		"zc",
+		"u50",
+		"u200",
+		"u250",
+		"samsung",
+		"vck5000",
+		"v70",
+		"vck190"
+	],
+	"v++": {
+		"package": {
+			"cflags": [
+				"--package.defer_aie_run"
+			]
+                }
+     	},
+        "host": {
+             "compiler": {
+              "sources": [
+                "src/host.cpp"
+                ],
+		"options": "-std=c++14",
+		"symbols": [
+			"sizeM=64",
+			"sizeK=64",
+			"sizeN=64",
+			"subM=4",
+			"subK=16",
+			"subN=8",
+			"NIterations=4",
+			"PLIOW=128"
+			]
+             }
+         },    
+	"aiecompiler": {
+		"compiler" : {
+			"includepaths": [
+				"./src"
+			],
+		"clflags": [
+                	"--Xpreproc=-DsizeM=64",
+			"--Xpreproc=-DsizeK=64",
+			"--Xpreproc=-DsizeN=64",
+			"--Xpreproc=-DsubM=4",
+			"--Xpreproc=-DsubK=16",
+			"--Xpreproc=-DsubN=8",
+			"--Xpreproc=-DNIterations=4",
+			"--Xpreproc=-DPLIOW=128",
+			"--Xpreproc=-DOPTIMIZED_SOURCE=0",
+			"--Xchess=main:darts.xargs=-nb",
+			"--Xchess=\"ClassicMatMult:backend.mist2.xargs=+Omodo\""
+
+			]
+
+		}
+	},
+	"aiecontainers": [
+		{
+			"accelerators": [
+				{
+					"location": "src/graph.cpp",
+					"option": "-log-level=1 --stacksize=1024 --heapsize=1024",
+					"name": "libadf.a",
+					"aie_kernel_files": [
+						"src/matmult.cpp"
+					]
+				}
+			]
+		}	
+	],
+    "containers": [
+        {
+            "accelerators": [
+                {
+                    "name": "mm2s_8_128", 
+                    "location": "src/mm2s_8_128.cpp",
+                    "frequency": 250.0
+                }, 
+                {
+                    "name": "s2mm_16_128", 
+                    "location": "src/s2mm_16_128.cpp",
+                    "frequency": 250.0
+                },
+		{
+		    "name": "s2mm_32_128",
+		    "location": "src/s2mm_32_128.cpp",
+                    "frequency": 250.0
+		}
+            ], 
+            "name": "binary_container_1",
+	    "ldclflags": "--config PROJECT/system.cfg"
+        }
+    ], 
+    "launch": [
+        {
+            "cmd_args": "BUILD/binary_container_1.xclbin", 
+            "name": "Launch"
+        }
+    ], 
+    "contributors": [
+        {
+            "url": "http://www.xilinx.com", 
+            "group": "Xilinx"
+        }
+    ] 
+}
