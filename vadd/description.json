@@ -1,49 +1,93 @@
 {
-    "name": "Simple Vector Addition",
-    "description": "This is a simple example of vector addition.\r\n\nThe purpose of this code is to introduce the user to application development in the Vitis tools.",
-    "os": [
-        "Linux"
+    "name": "Simple Vector Addition", 
+    "description": [
+        "This is simple example of vector addition to describe the usage of XRT Native API's. The kernel uses HLS Dataflow which allows the user to schedule multiple task together to achieve higher throughput."
     ],
-    "runtime": [
-        "OpenCL"
+    "flow": "vitis",
+    "keywords": [
+        "xrt::device",
+        "load_xclbin", 
+        "xrt::bo",
+        "xrt::kernel", 
+        "map", 
+        "sync",
+        "XCL_BO_SYNC_BO_TO_DEVICE",
+        "XCL_BO_SYNC_BO_FROM_DEVICE",
+        "gmem",
+        "#pragma HLS INTERFACE",
+        "dataflow",
+        "hls::stream"
+    ], 
+    "key_concepts": [
+        "XRT Native API",
+        "Task Level Parallelism"
     ],
     "platform_blacklist": [
         "nodma"
-    ],
-    "launch" : [
-        {
-            "cmd_args" : "BUILD/binary_container_1.xclbin"
-        }
-    ],
+    ], 
+    "os": [
+        "Linux"
+    ], 
+    "runtime": [
+        "xrt"
+    ], 
     "host": {
-        "host_exe": "vadd",
+        "host_exe": "hello_world_xrt",
         "compiler": {
             "sources": [
-                "vadd.cpp"
+                "./src/cmdlineparser.cpp",
+                "./src/logger.cpp",
+                "./src/host.cpp",
+		"./src/cmdlineparser.h",
+		"./src/logger.h"
             ]
+        },
+        "linker" : {
+            "libraries" : ["uuid",
+                           "xrt_coreutil"
+               ]
         }
-    },     
-    "containers" : [
+    },
+    "containers": [
         {
-            "name" : "binary_container_1",
             "accelerators": [
                 {
-                    "name": "krnl_vadd",
-                    "location": "krnl_vadd.cpp"
+                    "name": "vadd", 
+                    "location": "src/vadd.cpp"
                 }
-            ]
+            ], 
+            "name": "vadd"
         }
     ],
-    "contributors" : [
+    "launch": [
         {
-            "group" : "Xilinx, Inc.",
-            "url" : "http://www.xilinx.com"
+            "cmd_args": "-x BUILD/vadd.xclbin", 
+            "name": "generic launch for all flows"
+        }
+    ], 
+    "contributors": [
+        {
+            "url": "http://www.xilinx.com", 
+            "group": "Xilinx, Inc."
         }
     ],
-    "revision" : [
-        {
-            "date" : "2019",
-            "version" : "1.0"
-        }
-    ]
+    "testinfo": {
+        "disable": false,
+        "profile": "no",
+        "jobs": [
+            {
+                "index": 0,
+                "dependency": [],
+                "env": "",
+                "cmd": "",
+                "max_memory_MB": 32768,
+                "max_time_min": 300
+            }
+        ],
+        "targets": [
+            "vitis_hw_emu",
+            "vitis_hw"
+        ],
+        "category": "canary"
+    }
 }

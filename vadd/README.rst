@@ -1,16 +1,35 @@
 Vector Addition
-===============
+==================================
 
-This is a simple example of vector addition.The purpose of this code is to introduce the user to application development in the Vitis tools.
+This is simple example of vector addition to describe the usage of XRT Native API's. The kernel uses HLS Dataflow which allows the user to schedule multiple task together to achieve higher throughput.
 
-EXCLUDED PLATFORMS
-------------------
+**KEY CONCEPTS:** `XRT Native API <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Setting-Up-XRT-Managed-Kernels-and-Kernel-Arguments>`__, `Task Level Parallelism <https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/Data-driven-Task-level-Parallelism>`__
 
-Platforms containing following strings in their names are not supported for this example :
+**KEYWORDS:** `xrt::device <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Specifying-the-Device-ID-and-Loading-the-XCLBIN>`__, load_xclbin, `xrt::bo <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Writing-Host-Applications-with-XRT-API>`__, `xrt::kernel <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Setting-Up-XRT-Managed-Kernels-and-Kernel-Arguments>`__, `map <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Transferring-Data-between-Software-and-PL-Kernels>`__, `sync <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Transferring-Data-between-Software-and-PL-Kernels>`__, `XCL_BO_SYNC_BO_TO_DEVICE <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Writing-Host-Applications-with-XRT-API>`__, `XCL_BO_SYNC_BO_FROM_DEVICE <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Writing-Host-Applications-with-XRT-API>`__, `gmem <https://docs.xilinx.com/r/en-US/ug1393-vitis-application-acceleration/Mapping-Kernel-Ports-to-Memory>`__, `#pragma HLS INTERFACE <https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/HLS-Pragmas>`__, `dataflow <https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/Dataflow>`__, `hls::stream <https://docs.xilinx.com/r/en-US/ug1399-vitis-hls/HLS-Stream-Library>`__
 
-::
+.. raw:: html
 
-   nodma
+ <details>
+
+.. raw:: html
+
+ <summary> 
+
+ <b>EXCLUDED PLATFORMS:</b>
+
+.. raw:: html
+
+ </summary>
+|
+..
+
+ - All NoDMA Platforms, i.e u50 nodma etc
+
+.. raw:: html
+
+ </details>
+
+.. raw:: html
 
 DESIGN FILES
 ------------
@@ -19,9 +38,8 @@ Application code is located in the src directory. Accelerator binary files will 
 
 ::
 
-   src/krnl_vadd.cpp
+   src/host.cpp
    src/vadd.cpp
-   src/vadd.h
    
 COMMAND LINE ARGUMENTS
 ----------------------
@@ -30,33 +48,48 @@ Once the environment has been configured, the application can be executed by
 
 ::
 
-   ./simple_vadd <krnl_vadd XCLBIN>
+   ./hello_world_xrt -x <vadd XCLBIN>
 
 DETAILS
 -------
 
-This is a simple example of vector addition. The kernel uses HLS Dataflow which allows the user to schedule multiple task together to achieve higher throughput.
+This is a simple hello world example to explain the XRT Native API's
 
-Vitis kernel can have one s_axilite interface which will be used by host application to configure the kernel. All the global memory access arguments are associated to m_axi(AXI Master Interface) as below:
+- Device and XCLBIN APIs
 
-.. code:: cpp	
+::
 
-   #pragma HLS INTERFACE m_axi port = in1 bundle = gmem0
-   #pragma HLS INTERFACE m_axi port = in2 bundle = gmem1
-   #pragma HLS INTERFACE m_axi port = out bundle = gmem0
+    xrt::device(unsigned int didx)
+    This call open the device and return device handle.
 
-Multiple interfaces can be created based on the requirements. For example when multiple memory accessing arguments need access to global memory simultaneously, user can create multiple master interfaces and can connect to different arguments.
+    load_xclbin(binaryFile)
+    This function reads the file from disk and loads the xclbin. This 
+    will return the UUID of the xclbin.
 
-Usually data stored in the array is consumed or produced in a sequential manner, a more efficient communication mechanism is to use streaming data as specified by the STREAM pragma, where FIFOs are used instead of RAMs.
 
-Vector addition in kernel is divided into 4 sub-tasks(read input 1, read input 2 , compute_add and write) which are then performed concurrently using ``Dataflow``.
+    
+- Buffer APIs
 
-.. code:: cpp
+::
 
-   #pragma HLS dataflow
-       load_input(in1, in1_stream, size);
-       load_input(in2, in2_stream, size);
-       compute_add(in1_stream, in2_stream, out_stream, size);
-       store_result(out, out_stream, size);
+    xrt::bo(xclDeviceHandle dhdl, size_t size, memory_group grp)
+    The buffer type is default buffer object with host buffer and 
+    device buffer. The host buffer is allocated and managed by XRT.
+    
+    void sync(xclBOSyncDirection dir, size_t sz, size_t offset)
+    Synchronize specified size bytes of buffer starting at specified offset.
 
-For more comprehensive documentation, `click here <http://xilinx.github.io/Vitis_Accel_Examples>`__.
+    void *map()
+    Map the contents of the buffer object into host memory
+
+
+
+- Kernel APIs
+
+::
+
+    xrt::kernel(const xrt::device &device, const xrt::uuid &xclbin_id, const std::string &name)
+    A kernel object represents a set of instances matching a specified name.
+    The kernel is created by finding matching kernel instances in the 
+    currently loaded xclbin. Most interaction with kernel objects are through
+    xrt::run objects created from the kernel object to represent an execution of the kernel 
