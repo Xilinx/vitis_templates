@@ -40,7 +40,9 @@
                 "./src/host.cpp",
 		"./src/cmdlineparser.h",
 		"./src/logger.h"
-            ]
+            ],
+	"options": "-std=c++17"
+		
         },
         "linker" : {
             "libraries" : ["uuid",
