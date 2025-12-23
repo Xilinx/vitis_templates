@@ -7,6 +7,7 @@
 #include "input.h"
 #include "golden.h"
 #include <cstring>
+#include <iostream>
 
 #include "experimental/xrt_kernel.h"
 
