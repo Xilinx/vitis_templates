@@ -1,6 +1,6 @@
 /*
 Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: X11
 */
 
 #pragma once
@@ -81,19 +81,21 @@ public:
     MatrixMultiply<int8,int16,6,20> MMult2;
 
 
+#define PLIO_FREQ  312.5
+
     TestMatMult(){
 
-        inA1 = adf::input_plio::create("inputA1",adf::plio_128_bits,"data/inputA_128.txt",250);
-        inB1 = adf::input_plio::create("inputB1",adf::plio_128_bits,"data/inputB_128.txt",250);
-        outC1 = adf::output_plio::create("outputC1",adf::plio_128_bits,"data/outputCns_128_32b.txt",250);
+        inA1 = adf::input_plio::create("inputA1",adf::plio_128_bits,"data/inputA_128.txt",PLIO_FREQ);
+        inB1 = adf::input_plio::create("inputB1",adf::plio_128_bits,"data/inputB_128.txt",PLIO_FREQ);
+        outC1 = adf::output_plio::create("outputC1",adf::plio_128_bits,"data/outputCns_128_32b.txt",PLIO_FREQ);
 
         adf::connect(inA1.out[0],MMult1.inA);
         adf::connect(inB1.out[0],MMult1.inB);
         adf::connect(MMult1.outC,outC1.in[0]);
 
-        inA2 = adf::input_plio::create("inputA2",adf::plio_128_bits,"data/inputA_128.txt",250);
-        inB2 = adf::input_plio::create("inputB2",adf::plio_128_bits,"data/inputB_128.txt",250);
-        outC2 = adf::output_plio::create("outputC2",adf::plio_128_bits,"data/outputCns_128_16b.txt",250);
+        inA2 = adf::input_plio::create("inputA2",adf::plio_128_bits,"data/inputA_128.txt",PLIO_FREQ);
+        inB2 = adf::input_plio::create("inputB2",adf::plio_128_bits,"data/inputB_128.txt",PLIO_FREQ);
+        outC2 = adf::output_plio::create("outputC2",adf::plio_128_bits,"data/outputCns_128_16b.txt",PLIO_FREQ);
 
         adf::connect(inA2.out[0],MMult2.inA);
         adf::connect(inB2.out[0],MMult2.inB);

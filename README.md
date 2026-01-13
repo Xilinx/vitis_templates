@@ -1,13 +1,13 @@
-Welcome to the Vitis Examples repository. This repository contains examples to showcase various features of the Vitis™ tools targeting AIEngine and XRT applications. 
-This repository illustrates specific scenarios related to host code and kernel programming through small working examples. 
-The intention is for users to be able to use these working examples as a reference while developing their own accelerated applications based on AMD Accelerated platforms. 
+Welcome to the Vitis Examples repository! This repository provides a collection of examples designed to showcase the capabilities of the Vitis™ tools, targeting AI Engine and XRT applications.
 
-Note: Users can use their custom platforms which support the devices in both GUI and Makefile based applications.
+These examples demonstrate specific scenarios involving host code and kernel programming through concise, functional implementations. They are intended to serve as a reference, helping users develop their own accelerated applications on AMD Accelerated Platforms.
+
+Note: Users can also utilize custom platforms that support the devices in both GUI-based and Makefile-based applications.
 
 # Brief description of the examples
 We have 3 category of examples.
-1) aie_examples : Templates which cover the basic AIE capabilities.
-2) aie_system_examples : This category contains 2 examples. 
-- 'aie_sys_design' example covers the full system utilization using VCK190 platform.
-- 'aie-ml_sys_design' example based on VEK280 platform.
-3) system_examples : Generic system example which is of Vector Addition using Xilinx Runtime(XRT). 
+- aie_examples : Templates which cover the basic AIE and AIEML capabilities.
+- aie_system_examples : This category contains 2 examples. 
+    - `aie_sys_design` The example demonstrates a complete system, covering PS, PL, and AI Engine utilization for Versal boards equipped with an AI Engine.
+    - `aie-ml_sys_design` The example demonstrates a complete system, covering PS, PL, and AI Engine utilization for Versal boards equipped with an AI Engine ML.
+- system_examples : A generic system example, including PS and PL, demonstrates Vector Addition using OpenCL, similar to the "Hello World" example in the C programming language.
