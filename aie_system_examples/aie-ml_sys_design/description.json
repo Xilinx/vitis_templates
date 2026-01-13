@@ -162,7 +162,7 @@
 
 					"location": "src/graph.cpp",
 
-					"option": "-log-level=1 --stacksize=1024 --heapsize=1024",
+					"option": "-log-level=2 --stacksize=1024 --heapsize=1024",
 
 					"name": "libadf.a",
 
