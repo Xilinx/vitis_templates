@@ -11,7 +11,7 @@
 		
 	"additional-properties" : [
             {"key" : "GRAPH_FILES", "values" : ["src/graph.cpp"]}, 
-            {"key" : "LOG_LEVEL", "values" : ["Log Level(1)"]},
+            {"key" : "LOG_LEVEL", "values" : ["Log Level(2)"]},
             {"key" : "STACK_SIZE", "values" : [1024]},
             {"key" : "HEAP_SIZE" , "values" : [1024]}
 
