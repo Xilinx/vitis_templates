@@ -131,7 +131,7 @@
     {
       "date": "2025",
       "version": "1.0",
-      "description": "Initial DFX template with multiple binary containers for Vitis 2025.1"
+      "description": "Initial DFX template with multiple binary containers for Vitis"
     }
   ]
 }
