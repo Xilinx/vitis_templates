@@ -1,6 +1,6 @@
 
 ###  DFX Design development Flow
-**Vitis 2025.1**
+**Vitis 2026.1**
 
 ```mermaid
 flowchart LR
