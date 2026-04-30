@@ -28,6 +28,13 @@
     "v70",
     "vek280"
   ],
+	"v++": {
+		"package": {
+			"cflags": [
+				"--package.defer_aie_run"
+			]
+    }
+  },
   "host": {
     "compiler": {
       "sources": ["host/host.cpp"],
