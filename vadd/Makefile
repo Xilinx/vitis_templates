@@ -36,12 +36,12 @@ help:
 endif
 
 ############################## Setting up Project Variables ##############################
-TARGET := hw_emu
-#SYSROOT := $(EDGE_COMMON_SW)/sysroots/cortexa72-cortexa53-amd-linux
-SYSROOT := /proj/xbuilds/2025.2_daily_latest/internal_platforms/sw/versal/xilinx-versal/sysroots/cortexa72-cortexa53-amd-linux/
-PLATFORM ?= xilinx_vck190_base_202520_1
-#SD_IMAGE_FILE := $(EDGE_COMMON_SW)/Image
-SD_IMAGE_FILE := /proj/xbuilds/2025.2_daily_latest/internal_platforms/sw/versal/xilinx-versal/Image
+TARGET := hw
+EDGE_COMMON_SW := /proj/xbuilds/2026.1_daily_latest/internal_platforms/sw/versal/xilinx-versal/
+SYSROOT := $(EDGE_COMMON_SW)/sysroots/cortexa72-cortexa53-amd-linux
+PLATFORM ?= xilinx_vck190_base_202610_1
+SD_IMAGE_FILE := $(EDGE_COMMON_SW)/Image
+ROOTFS := $(EDGE_COMMON_SW)/rootfs.ext4
 VPP_LDFLAGS :=
 include ./utils.mk
 RUN_APP_SCRIPT := run_app.sh
@@ -111,7 +111,7 @@ sd_card:  emconfig $(SD_CARD)
 #sd_card: $(SD_CARD)
 
 $(SD_CARD): $(EXECUTABLE) $(LINK_OUTPUT)
-	v++ -p $(VPP_PFLAGS) $(LINK_OUTPUT) $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) --package.out_dir $(PACKAGE_OUT) --package.rootfs /proj/xbuilds/2025.2_daily_latest/internal_platforms/sw/versal/xilinx-versal/rootfs.ext4 --package.sd_file $(SD_IMAGE_FILE) --package.sd_file $(EXECUTABLE) -o $(BUILD_DIR)/vadd.xclbin
+	v++ -p $(VPP_PFLAGS) $(LINK_OUTPUT) $(VPP_FLAGS) -t $(TARGET) --platform $(PLATFORM) --package.out_dir $(PACKAGE_OUT) --package.rootfs $(ROOTFS) --package.sd_file $(SD_IMAGE_FILE) --package.generate_sdcard --package.sd_file $(EXECUTABLE) -o $(BUILD_DIR)/vadd.xclbin
 
 ############################## Setting Rules for Host (Building Host Executable) ##############################
 $(EXECUTABLE): $(HOST_SRCS) | check-xrt
