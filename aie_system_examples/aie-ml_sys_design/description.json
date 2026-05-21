@@ -63,8 +63,7 @@
 
 			"cflags": [
 
-				"--package.defer_aie_run",
-				"--package.enable_aie_debug"
+				"--package.defer_aie_run"
 
 			]
 
