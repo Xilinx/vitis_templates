@@ -81,3 +81,18 @@ flowchart LR
 ```
 
 >Note: In this diagram, PFM_L and PFM_R represent the same vck190 base DFX platform as XPFM — they are just shown separately to make the diagram lines clearer.
+
+---
+
+## Host Application — XRT hw_context API
+
+`host/host.cpp` uses the modern XRT C++ `xrt::hw_context` API.
+
+| Topic | Detail |
+|---|---|
+| **xclbin loading** | Uses `xrt::xclbin` + `device.register_xclbin()` to load each DFX partition; `device.load_xclbin()` is deprecated. |
+| **hw_context per DFX pass** | A single `xrt::device` is reused across both passes. Each pass creates its own `xrt::hw_context` inside a scoped block `{ }` so RAII destroys kernels, BOs, and the context before the next xclbin is registered. |
+| **Kernels and graph** | `xrt::kernel(hw_ctx, name)` and `xrt::graph(hw_ctx, name)` both take `hw_ctx`; the `(device, uuid, name)` forms are deprecated. |
+| **BO allocation after kernel construction** | BOs must be allocated after `xrt::kernel` objects are created so that `kernel.group_id(argno)` can be used to select the correct DDR memory group. On this platform, MEM_TOPOLOGY group 0 is `Bank Used: No`; the kernel `mem` arguments connect to groups 1/2. Always use `xrt::bo(hw_ctx, size, krnl.group_id(argno))`. |
+| **Kernel argument indices** | `set_arg` uses the HLS function argument position (all parameters counted, including AXI-Stream ports). For `mm2s`/`s2mm`: `mem=0`, `s=1` (stream, not set), `size=2`. For `polar_clip`: `input=0`, `output=1` (streams, not set), `size=2`. Confirmed via `xclbinutil --info`. |
+| **RAII** | No explicit resource-release calls needed; C++ destructors handle teardown of kernels, BOs, and graph. |
