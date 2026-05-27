@@ -14,116 +14,85 @@
 #include <cstring>
 
 #include "input.h"                 // cint16input[]
-#include "experimental/xrt_kernel.h"
+#include "xrt/xrt_device.h"
+#include "xrt/xrt_bo.h"
+#include "xrt/xrt_kernel.h"
+#include "xrt/xrt_hw_context.h"
+#include "xrt/xrt_graph.h"
+#include "xrt/experimental/xrt_xclbin.h"
 #include "adf/adf_api/XRTConfig.h"
 
 #define INPUT_SIZE   128
 #define OUTPUT_SIZE  256
 #define NO_OF_ITERATIONS  4
 
-// --- tiny helpers ---
-#define CHECK_0(expr, msg) do { if ((expr) != 0) { throw std::runtime_error(msg); } } while(0)
-#define CHECK_PTR(p, msg)  do { if (!(p))        { throw std::runtime_error(msg); } } while(0)
-
-// Load xclbin (same API as your example)
-static std::vector<char>
-load_xclbin(xrtDeviceHandle device, const std::string& fnm)
-{
-  if (fnm.empty())
-    throw std::runtime_error("No xclbin specified");
-
-  std::ifstream stream(fnm, std::ios::binary);
-  if (!stream)
-    throw std::runtime_error("Failed to open xclbin: " + fnm);
-
-  stream.seekg(0, stream.end);
-  size_t size = static_cast<size_t>(stream.tellg());
-  stream.seekg(0, stream.beg);
-
-  std::vector<char> header(size);
-  stream.read(header.data(), size);
-
-  auto top = reinterpret_cast<const axlf*>(header.data());
-  CHECK_0(xrtDeviceLoadXclbin(device, top), "Bitstream download failed");
-  return header;
-}
-
-// Run exactly one region (one DFX pass), return host output buffer.
-// - does NOT close the device
-// - closes only the handles it opens
+// Run exactly one DFX region pass, return host output buffer.
+// BOs are allocated here (after kernels) so group_id() can be used to pick
+// the correct DDR memory group — group 0 in this platform is Bank Used: No.
 static std::vector<int>
-run_one_pass(xrtDeviceHandle dhdl,
-             const xuid_t& uuid,
-             xrtBufferHandle in_bohdl,  int sizeInWords,
-             xrtBufferHandle out_bohdl, int sizeOutWords,
+run_one_pass(xrt::hw_context& hw_ctx,
+             int sizeInWords, int sizeOutWords,
              long itr)
 {
-  // Open PL kernels
-  xrtKernelHandle mm2s_khdl       = xrtPLKernelOpen(dhdl, uuid, "mm2s");
-  xrtKernelHandle s2mm_khdl       = xrtPLKernelOpen(dhdl, uuid, "s2mm");
-  xrtKernelHandle polar_clip_khdl = xrtPLKernelOpen(dhdl, uuid, "polar_clip");
-  CHECK_PTR(mm2s_khdl, "open mm2s failed");
-  CHECK_PTR(s2mm_khdl, "open s2mm failed");
-  CHECK_PTR(polar_clip_khdl, "open polar_clip failed");
+  xrt::kernel mm2s_krnl(hw_ctx, "mm2s");
+  xrt::kernel s2mm_krnl(hw_ctx, "s2mm");
+  xrt::kernel polar_clip_krnl(hw_ctx, "polar_clip");
 
-  xrtRunHandle mm2s_rhdl = xrtRunOpen(mm2s_khdl);
-  xrtRunHandle s2mm_rhdl = xrtRunOpen(s2mm_khdl);
-  xrtRunHandle polar_clip_rhdl = xrtRunOpen(polar_clip_khdl);
-  CHECK_PTR(mm2s_rhdl, "runOpen mm2s failed");
-  CHECK_PTR(s2mm_rhdl, "runOpen s2mm failed");
-  CHECK_PTR(polar_clip_rhdl, "runOpen polar_clip failed");
+  xrt::run mm2s_rhdl(mm2s_krnl);
+  xrt::run s2mm_rhdl(s2mm_krnl);
+  xrt::run polar_clip_rhdl(polar_clip_krnl);
 
-  // Args (your convention: 0 = BO, 2 = length in 32-bit words)
-  CHECK_0(xrtRunSetArg(mm2s_rhdl, 0, in_bohdl),  "mm2s arg0 failed");
-  CHECK_0(xrtRunSetArg(mm2s_rhdl, 2, sizeInWords), "mm2s arg2 failed");
-  CHECK_0(xrtRunSetArg(s2mm_rhdl, 0, out_bohdl), "s2mm arg0 failed");
-  CHECK_0(xrtRunSetArg(s2mm_rhdl, 2, sizeOutWords), "s2mm arg2 failed");
-  CHECK_0(xrtRunSetArg(polar_clip_rhdl, 2, sizeOutWords), "polar_clip arg2 failed");
+  // Allocate BOs using the memory group the kernel expects for its mem argument.
+  // xclbin MEM_TOPOLOGY: group 0 = Bank Used: No; groups 1/2 = Bank Used: Yes (DDR).
+  // group_id(0) returns the correct DDR group for each kernel's first argument.
+  size_t in_bytes  = static_cast<size_t>(sizeInWords)  * sizeof(int);
+  size_t out_bytes = static_cast<size_t>(sizeOutWords) * sizeof(int);
+  xrt::bo in_bo (hw_ctx, in_bytes,  mm2s_krnl.group_id(0));
+  xrt::bo out_bo(hw_ctx, out_bytes, s2mm_krnl.group_id(0));
+
+  // Initialize input
+  auto in_map = in_bo.map<short int*>();
+  std::memcpy(in_map, cint16input, in_bytes);
+
+  // Arg indices per xclbin EMBEDDED_METADATA (function order, all 4 args present):
+  //   mm2s / s2mm: 0=mem(BO), 1=s(stream-skip), 2=size(scalar), 3=written(output-skip)
+  //   polar_clip:  0=input(stream-skip), 1=output(stream-skip), 2=size(scalar)
+  mm2s_rhdl.set_arg(0, in_bo);
+  mm2s_rhdl.set_arg(2, sizeInWords);
+  s2mm_rhdl.set_arg(0, out_bo);
+  s2mm_rhdl.set_arg(2, sizeOutWords);
+  polar_clip_rhdl.set_arg(2, sizeOutWords);
 
   // Coherency (push input)
-  {
-    size_t in_bytes = static_cast<size_t>(sizeInWords) * sizeof(int);
-    CHECK_0(xrtBOSync(in_bohdl, XCL_BO_SYNC_BO_TO_DEVICE, in_bytes, 0), "BOSync TO_DEVICE failed");
-  }
+  in_bo.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
   // Open graph
-  auto ghdl = xrtGraphOpen(dhdl, uuid, "clipgraph");
-  CHECK_PTR(ghdl, "xrtGraphOpen(clipgraph) failed");
+  xrt::graph ghdl(hw_ctx, "clipgraph");
 
   // Start order: consumer first
-  xrtRunStart(s2mm_rhdl);        printf("run s2mm\n");
-  xrtRunStart(polar_clip_rhdl);  printf("run polar_clip\n");
+  s2mm_rhdl.start();        printf("run s2mm\n");
+  polar_clip_rhdl.start();  printf("run polar_clip\n");
   printf("xrtGraphRun\n");
-  xrtGraphRun(ghdl, itr);
-  xrtRunStart(mm2s_rhdl);        printf("run mm2s\n");
+  ghdl.run(itr);
+  mm2s_rhdl.start();        printf("run mm2s\n");
 
   // Wait
-  int st = xrtRunWait(mm2s_rhdl);
-  std::cout << "mm2s completed with status(" << st << ")\n";
-  st = xrtRunWait(polar_clip_rhdl);
-  std::cout << "polar_clip completed with status(" << st << ")\n";
-  st = xrtRunWait(s2mm_rhdl);
-  std::cout << "s2mm completed with status(" << st << ")\n";
+  auto st = mm2s_rhdl.wait();
+  std::cout << "mm2s completed with status(" << static_cast<int>(st) << ")\n";
+  st = polar_clip_rhdl.wait();
+  std::cout << "polar_clip completed with status(" << static_cast<int>(st) << ")\n";
+  st = s2mm_rhdl.wait();
+  std::cout << "s2mm completed with status(" << static_cast<int>(st) << ")\n";
 
-  // Graph end/close
-  xrtGraphEnd(ghdl, 0);
+  // Graph end
+  ghdl.end(0);
   printf("xrtGraphEnd..\n");
-  xrtGraphClose(ghdl);
 
   // Pull output
-  size_t out_bytes = static_cast<size_t>(sizeOutWords) * sizeof(int);
-  CHECK_0(xrtBOSync(out_bohdl, XCL_BO_SYNC_BO_FROM_DEVICE, out_bytes, 0), "BOSync FROM_DEVICE failed");
-  auto out_ptr = reinterpret_cast<int*>(xrtBOMap(out_bohdl));
+  out_bo.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+  auto out_ptr = out_bo.map<int*>();
   std::vector<int> host_out(sizeOutWords);
   std::memcpy(host_out.data(), out_ptr, out_bytes);
-
-  // Close handles opened here
-  xrtRunClose(s2mm_rhdl);
-  xrtKernelClose(s2mm_khdl);
-  xrtRunClose(mm2s_rhdl);
-  xrtKernelClose(mm2s_khdl);
-  xrtRunClose(polar_clip_rhdl);
-  xrtKernelClose(polar_clip_khdl);
 
   return host_out;
 }
@@ -139,55 +108,33 @@ int main(int argc, char ** argv)
     const char* xclbin1 = argv[1];
     const char* xclbin2 = argv[2];
 
-    // Sizes (same meaning as your example)
-    const long itr = NO_OF_ITERATIONS;
+    const long itr         = NO_OF_ITERATIONS;
     const int  sizeInWords  = INPUT_SIZE  * itr;
     const int  sizeOutWords = OUTPUT_SIZE * itr;
-    const size_t in_bytes   = static_cast<size_t>(sizeInWords)  * sizeof(int);
-    const size_t out_bytes  = static_cast<size_t>(sizeOutWords) * sizeof(int);
+
+    xrt::device device(0);
 
     // ---------- PASS 1 ----------
-    xuid_t uuid1{};
-    auto dhdl1 = xrtDeviceOpen(0);                        CHECK_PTR(dhdl1, "xrtDeviceOpen(0) failed");
-    auto xb1   = load_xclbin(dhdl1, xclbin1);
-    CHECK_0(xrtDeviceGetXclbinUUID(dhdl1, uuid1), "Get UUID #1 failed");
+    std::vector<int> out1;
+    {
+      xrt::xclbin xclbin1_obj{std::string{xclbin1}};
+      auto uuid1 = device.register_xclbin(xclbin1_obj);
+      xrt::hw_context hw_ctx1(device, uuid1);
 
-    // Allocate BOs
-    xrtBufferHandle in_bohdl1  = xrtBOAlloc(dhdl1, in_bytes,  0, 0); CHECK_PTR(in_bohdl1, "BOAlloc in #1 failed");
-    xrtBufferHandle out_bohdl1 = xrtBOAlloc(dhdl1, out_bytes, 0, 0); CHECK_PTR(out_bohdl1, "BOAlloc out #1 failed");
-
-    // Initialize input (same input for both passes)
-    auto in_map1 = reinterpret_cast<short int*>(xrtBOMap(in_bohdl1));
-    CHECK_PTR(in_map1, "BOMap in #1 failed");
-    std::memcpy(in_map1, cint16input, in_bytes);
-
-    std::cout << "[PASS 1] load " << xclbin1 << "\n";
-    std::vector<int> out1 = run_one_pass(dhdl1, uuid1, in_bohdl1, sizeInWords, out_bohdl1, sizeOutWords, itr);
-
-    // Release BOs, keep device policy consistent with your flow (close device after region)
-    xrtBOFree(in_bohdl1);
-    xrtBOFree(out_bohdl1);
-    xrtDeviceClose(dhdl1);
+      std::cout << "[PASS 1] load " << xclbin1 << "\n";
+      out1 = run_one_pass(hw_ctx1, sizeInWords, sizeOutWords, itr);
+    } // hw_ctx1 destroyed (RAII) before pass 2 xclbin load
 
     // ---------- PASS 2 ----------
-    xuid_t uuid2{};
-    auto dhdl2 = xrtDeviceOpen(0);                        CHECK_PTR(dhdl2, "xrtDeviceOpen(0) failed (pass 2)");
-    auto xb2   = load_xclbin(dhdl2, xclbin2);
-    CHECK_0(xrtDeviceGetXclbinUUID(dhdl2, uuid2), "Get UUID #2 failed");   // NOTE: use dhdl2 (bug fix)
+    std::vector<int> out2;
+    {
+      xrt::xclbin xclbin2_obj{std::string{xclbin2}};
+      auto uuid2 = device.register_xclbin(xclbin2_obj);
+      xrt::hw_context hw_ctx2(device, uuid2);
 
-    xrtBufferHandle in_bohdl2  = xrtBOAlloc(dhdl2, in_bytes,  0, 0); CHECK_PTR(in_bohdl2, "BOAlloc in #2 failed");
-    xrtBufferHandle out_bohdl2 = xrtBOAlloc(dhdl2, out_bytes, 0, 0); CHECK_PTR(out_bohdl2, "BOAlloc out #2 failed");
-
-    auto in_map2 = reinterpret_cast<short int*>(xrtBOMap(in_bohdl2));
-    CHECK_PTR(in_map2, "BOMap in #2 failed");
-    std::memcpy(in_map2, cint16input, in_bytes);
-
-    std::cout << "[PASS 2] load " << xclbin2 << "\n";
-    std::vector<int> out2 = run_one_pass(dhdl2, uuid2, in_bohdl2, sizeInWords, out_bohdl2, sizeOutWords, itr);
-
-    xrtBOFree(in_bohdl2);
-    xrtBOFree(out_bohdl2);
-    xrtDeviceClose(dhdl2);
+      std::cout << "[PASS 2] load " << xclbin2 << "\n";
+      out2 = run_one_pass(hw_ctx2, sizeInWords, sizeOutWords, itr);
+    } // hw_ctx2 destroyed (RAII)
 
     // ---------- Compare ----------
     int errCnt = 0;
