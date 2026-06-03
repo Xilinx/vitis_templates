@@ -9,8 +9,12 @@ SPDX-License-Identifier: X11
 #include <string>
 #include <cstring>
 
-#include "experimental/xrt_kernel.h"
-#include "experimental/xrt_graph.h"
+#include "xrt/xrt_device.h"
+#include "xrt/xrt_bo.h"
+#include "xrt/xrt_kernel.h"
+#include "xrt/xrt_hw_context.h"
+#include "xrt/xrt_graph.h"
+#include "xrt/experimental/xrt_xclbin.h"
 
 template<typename T>
 int load_data_file(std::string fname,T * data,int L)
@@ -123,41 +127,55 @@ int run(int argc, char* argv[]){
     // Open xclbin
 	//////////////////////////////////////////
 
-    auto  device = xrt::device(0); //device index=0
-    if(device == nullptr)
-		throw std::runtime_error("No valid device handle found. Make sure using right xclOpen index.");
-    auto xclbin_uuid = device.load_xclbin(xclbinFilename);
+    auto device = xrt::device(0); //device index=0
+    xrt::xclbin xclbin_obj{std::string{xclbinFilename}};
+    auto xclbin_uuid = device.register_xclbin(xclbin_obj);
+    xrt::hw_context hw_ctx(device, xclbin_uuid);
 
+
+	////////////////////////////////////////////////////////
+	// Create kernel handles first so group_id() can be used for BO allocation
+	///////////////////////////////////////////////////////
+
+	auto mm2sA1_khdl = xrt::kernel(hw_ctx, "mm2s_8_128:{mm2s_8_128_1}");
+	auto mm2sB1_khdl = xrt::kernel(hw_ctx, "mm2s_8_128:{mm2s_8_128_2}");
+	auto mm2sA2_khdl = xrt::kernel(hw_ctx, "mm2s_8_128:{mm2s_8_128_3}");
+	auto mm2sB2_khdl = xrt::kernel(hw_ctx, "mm2s_8_128:{mm2s_8_128_4}");
+	auto s2mmC1_khdl = xrt::kernel(hw_ctx, "s2mm_32_128:{s2mm_32_128_1}");
+	auto s2mmC2_khdl = xrt::kernel(hw_ctx, "s2mm_16_128:{s2mm_16_128_1}");
 
 	//////////////////////////////////////////
     // Input and Output memories Allocation
+	// Use kernel.group_id(0) to select the correct DDR memory group.
+	// Hardcoding group 0 may map to a bank marked "Bank Used: No" on some
+	// platforms, causing a runtime exception at set_arg.
 	//////////////////////////////////////////
-    auto A1_bohdl = xrt::bo(device, pl_bramA_size_in_bytes, 0, 0);
+    auto A1_bohdl = xrt::bo(hw_ctx, pl_bramA_size_in_bytes, mm2sA1_khdl.group_id(0));
 	auto A1_bomapped = A1_bohdl.map<int8_t*>();
     load_data_file<int8_t>("data/inputA_128.txt",A1_bomapped,INPUT_SIZEA);
 	printf("A1 Input memory virtual addr 0x%px\n", A1_bomapped);
 
-	auto B1_bohdl = xrt::bo(device, pl_bramB_size_in_bytes, 0, 0);
+	auto B1_bohdl = xrt::bo(hw_ctx, pl_bramB_size_in_bytes, mm2sB1_khdl.group_id(0));
 	auto B1_bomapped = B1_bohdl.map<int8_t*>();
     load_data_file<int8_t>("data/inputB_128.txt",B1_bomapped,INPUT_SIZEB);
 	printf("B1 Input memory virtual addr 0x%px\n", B1_bomapped);
 
-	auto A2_bohdl = xrt::bo(device, pl_bramA_size_in_bytes, 0, 0);
+	auto A2_bohdl = xrt::bo(hw_ctx, pl_bramA_size_in_bytes, mm2sA2_khdl.group_id(0));
 	auto A2_bomapped = A2_bohdl.map<int8_t*>();
     load_data_file<int8_t>("data/inputA_128.txt",A2_bomapped,INPUT_SIZEA);
 	printf("A2 Input memory virtual addr 0x%px\n", A2_bomapped);
 
-	auto B2_bohdl = xrt::bo(device, pl_bramB_size_in_bytes, 0, 0);
+	auto B2_bohdl = xrt::bo(hw_ctx, pl_bramB_size_in_bytes, mm2sB2_khdl.group_id(0));
 	auto B2_bomapped = B2_bohdl.map<int8_t*>();
     load_data_file<int8_t>("data/inputB_128.txt",B2_bomapped,INPUT_SIZEB);
 	printf("B2 Input memory virtual addr 0x%px\n", B2_bomapped);
 
-	auto C1_bohdl = xrt::bo(device, pl_bramC1_size_in_bytes, 0, 0);
+	auto C1_bohdl = xrt::bo(hw_ctx, pl_bramC1_size_in_bytes, s2mmC1_khdl.group_id(0));
 	auto C1_bomapped = C1_bohdl.map<int32_t*>();
 	memset(C1_bomapped, 0xABCDEF00, pl_bramC1_size_in_bytes);
 	printf("C1 Output memory virtual addr 0x%px\n", C1_bomapped);
 
-	auto C2_bohdl = xrt::bo(device, pl_bramC2_size_in_bytes, 0, 0);
+	auto C2_bohdl = xrt::bo(hw_ctx, pl_bramC2_size_in_bytes, s2mmC2_khdl.group_id(0));
 	auto C2_bomapped = C2_bohdl.map<int16_t*>();
 	memset(C2_bomapped, 0xABCDEF00, pl_bramC2_size_in_bytes);
 	printf("C2 Output memory virtual addr 0x%px\n", C2_bomapped);
@@ -169,38 +187,22 @@ int run(int argc, char* argv[]){
     load_data_file<int>("data/outputC_ref_128_16b.txt",host_ref_16b,OUTPUT_SIZEC);
 
 	////////////////////////////////////////////////////////
-	// mm2s ip - Creating kernel handle using xrt::kernel API
+	// Start kernels
 	///////////////////////////////////////////////////////
-
 
     int NTransactionsA = INPUT_SIZEA*DATAIN_NBYTES_8/PLIO_NBYTES;
     int NTransactionsB = INPUT_SIZEB*DATAIN_NBYTES_8/PLIO_NBYTES;
     int PacketSizeA = NTransactionsA/NITER;
     int PacketSizeB = NTransactionsB/NITER;
-    
-	auto mm2sA1_khdl = xrt::kernel(device, xclbin_uuid, "mm2s_8_128:{mm2s_8_128_1}");
-    auto mm2sA1_rhdl = mm2sA1_khdl(A1_bohdl, nullptr, NTransactionsA,PacketSizeA);
 
-	auto mm2sB1_khdl = xrt::kernel(device, xclbin_uuid, "mm2s_8_128:{mm2s_8_128_2}");
-    auto mm2sB1_rhdl = mm2sB1_khdl(B1_bohdl, nullptr, NTransactionsB,PacketSizeB);
-
-	auto mm2sA2_khdl = xrt::kernel(device, xclbin_uuid, "mm2s_8_128:{mm2s_8_128_3}");
-    auto mm2sA2_rhdl = mm2sA2_khdl(A2_bohdl, nullptr, NTransactionsA,PacketSizeA);
-
-	auto mm2sB2_khdl = xrt::kernel(device, xclbin_uuid, "mm2s_8_128:{mm2s_8_128_4}");
-    auto mm2sB2_rhdl = mm2sB2_khdl(B2_bohdl, nullptr, NTransactionsB,PacketSizeB);
-
-
-	////////////////////////////////////////////////////////
-	// s2mm ip - Creating kernel handle using xrt::kernel API
-	///////////////////////////////////////////////////////
+    auto mm2sA1_rhdl = mm2sA1_khdl(A1_bohdl, nullptr, NTransactionsA, PacketSizeA);
+    auto mm2sB1_rhdl = mm2sB1_khdl(B1_bohdl, nullptr, NTransactionsB, PacketSizeB);
+    auto mm2sA2_rhdl = mm2sA2_khdl(A2_bohdl, nullptr, NTransactionsA, PacketSizeA);
+    auto mm2sB2_rhdl = mm2sB2_khdl(B2_bohdl, nullptr, NTransactionsB, PacketSizeB);
 
     int NTransactionsC1 = OUTPUT_SIZEC*DATAOUT_NBYTES_32/PLIO_NBYTES;
     int NTransactionsC2 = OUTPUT_SIZEC*DATAOUT_NBYTES_16/PLIO_NBYTES;
-	auto s2mmC1_khdl = xrt::kernel(device, xclbin_uuid, "s2mm_32_128:{s2mm_32_128_1}");
     auto s2mmC1_rhdl = s2mmC1_khdl(C1_bohdl, nullptr, NTransactionsC1);
-
-	auto s2mmC2_khdl = xrt::kernel(device, xclbin_uuid, "s2mm_16_128:{s2mm_16_128_1}");
     auto s2mmC2_rhdl = s2mmC2_khdl(C2_bohdl, nullptr, NTransactionsC2);
 
     std::cout << "Number of Transactions for A : " << NTransactionsA  <<  std::endl;
@@ -230,7 +232,7 @@ int run(int argc, char* argv[]){
 	//////////////////////////////////////////
 
 	//Obtains the graph handle from the XCLBIN that is loaded into the device
-	auto cghdl = xrt::graph(device,xclbin_uuid,"GMatMult");
+	auto cghdl = xrt::graph(hw_ctx, "GMatMult");
     // cghdl.reset();
 
     std::cout << "Graph run: " << NITER  <<  std::endl;
