@@ -1,6 +1,6 @@
 /*
 Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: X11
 */
 
 
@@ -16,7 +16,7 @@ extern "C" {
 	#define RATIO NBitsData/BUS_SIZE
 	#define ArraySize (InputArraySize*RATIO)
 
-	void mm2s_8_128(ap_int<BUS_SIZE>* mem, hls::stream<ap_axis<BUS_SIZE, 0, 0, 0>  >& s, int size)
+	void mm2s_8_128(ap_int<BUS_SIZE>* mem, hls::stream<ap_axis<BUS_SIZE, 0, 0, 0>  >& s, int size,int packetsize)
 	{
 		#pragma HLS INTERFACE m_axi port=mem offset=slave bundle=gmem
 
@@ -24,6 +24,7 @@ extern "C" {
 
 		#pragma HLS INTERFACE s_axilite port=mem bundle=control
 		#pragma HLS INTERFACE s_axilite port=size bundle=control
+		#pragma HLS INTERFACE s_axilite port=packetsize bundle=control
 		#pragma HLS interface s_axilite port=return bundle=control
 		ap_int<BUS_SIZE> v[ArraySize];
 
@@ -37,6 +38,9 @@ extern "C" {
 			#pragma HLS PIPELINE II=1
 			ap_axis<BUS_SIZE, 0, 0, 0> x;
 			x.data = v[i%ArraySize];
+			x.last = ((i%packetsize)==packetsize-1?1:0);
+			x.keep = 0xFFFF;
+			x.strb = 0xFFFF;
 			s.write(x);
 		}
 	}

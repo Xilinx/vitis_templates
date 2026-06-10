@@ -1,0 +1,146 @@
+{
+  "name": "DFX System Design with Multiple Binary Containers",
+  "description": [
+    "This design demonstrates Dynamic Function eXchange (DFX) flow with multiple binary containers integrating AI Engine, Programmable Logic, and Processing System. It showcases building separate xclbin files for different dynamic regions (task1 and task2) that can be loaded dynamically at runtime on VCK190 DFX platform."
+  ],
+  "keywords": [
+    "DFX",
+    "Dynamic Function Exchange",
+    "Multiple Binary Containers",
+    "Dynamic Region",
+    "Reconfigurable"
+  ],
+  "key_concepts": [
+    "DFX flow with IDE",
+    "Multiple xclbin generation",
+    "Dynamic region switching",
+    "AIE and PL integration per region"
+  ],
+  "os": ["Linux", "aie_runtime"],
+  "platform_whitelist": ["vck190_base_dfx"],
+  "platform_blacklist": [
+    "zc",
+    "u50",
+    "u200",
+    "u250",
+    "samsung",
+    "vck5000",
+    "v70",
+    "vek280",
+    "vek385"
+  ],
+	"v++": {
+		"package": {
+			"cflags": [
+				"--package.defer_aie_run"
+			]
+    }
+  },
+  "host": {
+    "compiler": {
+      "sources": ["host/host.cpp"],
+      "options": "-std=c++17"
+    }
+  },
+  "aiecompiler": {
+    "compiler": {
+      "includepaths": ["./task1/aie", "./task1/data"]
+    }
+  },
+  "aiecontainers": [
+    {
+      "name": "task1_aie",
+      "container": "task1",
+      "accelerators": [
+        {
+          "location": "task1/aie/graph.cpp",
+          "option": "-log-level=1 --stacksize=1024 --heapsize=1024",
+          "name": "libadf.a",
+          "aie_kernel_files": [
+            "task1/aie/kernels/hb27_2i.cc",
+            "task1/aie/kernels/classify.cc"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "task2_aie",
+      "container": "task2",
+      "accelerators": [
+        {
+          "location": "task2/aie/graph.cpp",
+          "option": "-log-level=1 --stacksize=1024 --heapsize=1024",
+          "name": "libadf.a",
+          "aie_kernel_files": [
+            "task2/aie/kernels/hb27_2i.cc",
+            "task2/aie/kernels/classify.cc"
+          ]
+        }
+      ]
+    }
+  ],
+  "containers": [
+    {
+      "name": "task1",
+      "accelerators": [
+        {
+          "name": "mm2s",
+          "location": "task1/hls/mm2s.cpp",
+          "frequency": 300.0
+        },
+        {
+          "name": "polar_clip",
+          "location": "task1/hls/polar_clip.cpp",
+          "frequency": 300.0
+        },
+        {
+          "name": "s2mm",
+          "location": "task1/hls/s2mm.cpp",
+          "frequency": 300.0
+        }
+      ],
+      "ldclflags": "--config PROJECT/task1/system.cfg"
+    },
+    {
+      "name": "task2",
+      "accelerators": [
+        {
+          "name": "mm2s",
+          "location": "task2/hls/mm2s.cpp",
+          "frequency": 300.0
+        },
+        {
+          "name": "polar_clip",
+          "location": "task2/hls/polar_clip.cpp",
+          "frequency": 300.0
+        },
+        {
+          "name": "s2mm",
+          "location": "task2/hls/s2mm.cpp",
+          "frequency": 300.0
+        }
+      ],
+      "ldclflags": "--config PROJECT/task2/system.cfg"
+    }
+  ],
+  "launch": [
+    {
+      "cmd_args": "BUILD/task1.xclbin BUILD/task2.xclbin",
+      "name": "Launch DFX with both regions"
+    }
+  ],
+  "contributors": [
+    {
+      "url": "http://www.xilinx.com",
+      "group": "Xilinx"
+    }
+  ],
+  "revision": [
+    {
+      "date": "2025",
+      "version": "1.0",
+      "description": "Initial DFX template with multiple binary containers for Vitis"
+    }
+  ]
+}
+ 
