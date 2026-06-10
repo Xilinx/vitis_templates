@@ -1,6 +1,9 @@
-<img src="./Images/logo2.png" alt="logo2" width="200"/>
-
-# Vitis AI Engine and AI Engine System Design Examples
+<table width="100%">
+ <tr width="100%">
+    <td align="center"><img src="https://raw.githubusercontent.com/Xilinx/Image-Collateral/main/xilinx-logo.png" width="30%"/><h1>AMD Vitis™ AI Engine and AI Engine System Design Examples</h1>
+    </td>
+ </tr>
+</table>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -54,6 +57,6 @@ Note: Users can also utilize custom platforms that support the devices in both G
 |---|---|---|
 | [`vadd`](vadd/) | VCK190 | Vector addition using XRT Native API + HLS dataflow kernel |
 
-<p class="sphinxhide" align="center"><sub>Copyright © 2020–2025 Advanced Micro Devices, Inc</sub></p>
+<p class="sphinxhide" align="center"><sub>Copyright © 2020–2026 Advanced Micro Devices, Inc</sub></p>
 
 <p class="sphinxhide" align="center"><sup><a href="https://www.amd.com/en/corporate/copyright">Terms and Conditions</a></sup></p>
