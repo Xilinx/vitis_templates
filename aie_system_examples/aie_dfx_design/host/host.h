@@ -5,7 +5,7 @@ Purpose: VITIS vector addition
 Revision History: January 28, 2016
 
 *******************************************************************************
-Copyright (C) 2019 XILINX, Inc.
+Copyright (C) 2026, Advanced Micro Devices, Inc. All rights reserved.
 
 This file contains confidential and proprietary information of Xilinx, Inc. and
 is protected under U.S. and international copyright and other intellectual
