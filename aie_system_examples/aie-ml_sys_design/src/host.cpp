@@ -35,59 +35,6 @@ int load_data_file(std::string fname,T * data,int L)
 }
 
 
-void MatrixMultiply(int8_t* A,int8_t * B, int * C, int M, int K, int N)
-{
-    for(int i=0;i<M;i++)
-    for(int j=0;j<N;j++)
-    {
-        int s = 0;
-        for(int k=0;k<K;k++)
-        {
-            s += (int)A[i*N+k]*(int)B[j+k*N];
-        }
-        C[i*N+j] = s;
-    }
-}
-
-std::string Messages[] = 
-{
-    "Null",
-    "ERT_CMD_STATE_NEW",
-    "ERT_CMD_STATE_QUEUED",
-    "ERT_CMD_STATE_RUNNING",
-    "ERT_CMD_STATE_COMPLETED",
-    "ERT_CMD_STATE_ERROR",
-    "ERT_CMD_STATE_ABORT",
-    "ERT_CMD_STATE_SUBMITTED",
-    "ERT_CMD_STATE_TIMEOUT",
-    "ERT_CMD_STATE_NORESPONSE",
-    "ERT_CMD_STATE_SKERROR",
-    "ERT_CMD_STATE_SKCRASHED"
-};
-
-
-
-int kernel_run_status(std::string Kernel,xrt::run &rhdl)
-{
-    auto status = (int)rhdl.state();
-
-    std::cout << "Status of " << Kernel << " --> " << Messages[(int)status] << std::endl;
-}
-
-int wait_status(std::string Kernel,xrt::run &rhdl)
-{
-    int status1,status;
-
-    status1 = -1;
-    do {
-        status = (int)rhdl.state();
-        if(status!=status1) 
-            std::cout << "Status of " << Kernel << " --> " << Messages[(int)status] << std::endl;
-        status1 = status;
-    }while (status<3); // NEW or QUEUED
-    std::cout << std::endl;
-    return(status);
-}
 #define INPUT_SIZEA (NIterations*sizeM*sizeK)
 #define INPUT_SIZEB (NIterations*sizeK*sizeN)
 #define OUTPUT_SIZEC (NIterations*sizeM*sizeN)
@@ -153,32 +100,45 @@ int run(int argc, char* argv[]){
     auto A1_bohdl = xrt::bo(hw_ctx, pl_bramA_size_in_bytes, mm2sA1_khdl.group_id(0));
 	auto A1_bomapped = A1_bohdl.map<int8_t*>();
     load_data_file<int8_t>("data/inputA_128.txt",A1_bomapped,INPUT_SIZEA);
-	printf("A1 Input memory virtual addr 0x%px\n", A1_bomapped);
+	printf("A1 Input memory virtual addr %p\n", A1_bomapped);
 
 	auto B1_bohdl = xrt::bo(hw_ctx, pl_bramB_size_in_bytes, mm2sB1_khdl.group_id(0));
 	auto B1_bomapped = B1_bohdl.map<int8_t*>();
     load_data_file<int8_t>("data/inputB_128.txt",B1_bomapped,INPUT_SIZEB);
-	printf("B1 Input memory virtual addr 0x%px\n", B1_bomapped);
+	printf("B1 Input memory virtual addr %p\n", B1_bomapped);
 
 	auto A2_bohdl = xrt::bo(hw_ctx, pl_bramA_size_in_bytes, mm2sA2_khdl.group_id(0));
 	auto A2_bomapped = A2_bohdl.map<int8_t*>();
     load_data_file<int8_t>("data/inputA_128.txt",A2_bomapped,INPUT_SIZEA);
-	printf("A2 Input memory virtual addr 0x%px\n", A2_bomapped);
+	printf("A2 Input memory virtual addr %p\n", A2_bomapped);
 
 	auto B2_bohdl = xrt::bo(hw_ctx, pl_bramB_size_in_bytes, mm2sB2_khdl.group_id(0));
 	auto B2_bomapped = B2_bohdl.map<int8_t*>();
     load_data_file<int8_t>("data/inputB_128.txt",B2_bomapped,INPUT_SIZEB);
-	printf("B2 Input memory virtual addr 0x%px\n", B2_bomapped);
+	printf("B2 Input memory virtual addr %p\n", B2_bomapped);
 
 	auto C1_bohdl = xrt::bo(hw_ctx, pl_bramC1_size_in_bytes, s2mmC1_khdl.group_id(0));
 	auto C1_bomapped = C1_bohdl.map<int32_t*>();
-	memset(C1_bomapped, 0xABCDEF00, pl_bramC1_size_in_bytes);
-	printf("C1 Output memory virtual addr 0x%px\n", C1_bomapped);
+	memset(C1_bomapped, 0, pl_bramC1_size_in_bytes);
+	printf("C1 Output memory virtual addr %p\n", C1_bomapped);
 
 	auto C2_bohdl = xrt::bo(hw_ctx, pl_bramC2_size_in_bytes, s2mmC2_khdl.group_id(0));
 	auto C2_bomapped = C2_bohdl.map<int16_t*>();
-	memset(C2_bomapped, 0xABCDEF00, pl_bramC2_size_in_bytes);
-	printf("C2 Output memory virtual addr 0x%px\n", C2_bomapped);
+	memset(C2_bomapped, 0, pl_bramC2_size_in_bytes);
+	printf("C2 Output memory virtual addr %p\n", C2_bomapped);
+
+	//////////////////////////////////////////
+	// Push the inputs to device memory before any kernel is started.
+	// The mapped pointer is host side only; without sync the kernels may read
+	// stale DDR content. It happens to work in hw_emu because QEMU memory is
+	// coherent, but it will fail on hardware.
+	//////////////////////////////////////////
+	A1_bohdl.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+	B1_bohdl.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+	A2_bohdl.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+	B2_bohdl.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+	C1_bohdl.sync(XCL_BO_SYNC_BO_TO_DEVICE);
+	C2_bohdl.sync(XCL_BO_SYNC_BO_TO_DEVICE);
 
     int host_ref_32b[OUTPUT_SIZEC];
     load_data_file<int>("data/outputC_ref_128_32b.txt",host_ref_32b,OUTPUT_SIZEC);
@@ -212,28 +172,12 @@ int run(int argc, char* argv[]){
     std::cout << "Number of Transactions for C1: " << NTransactionsC1  <<  std::endl;
     std::cout << "Number of Transactions for C2: " << NTransactionsC2  <<  std::endl;
 
-
-    // kernel_run_status("mm2s A1",mm2sA1_rhdl);
-    // kernel_run_status("mm2s B1",mm2sB1_rhdl);
-    // kernel_run_status("mm2s A2",mm2sA2_rhdl);
-    // kernel_run_status("mm2s B2",mm2sB2_rhdl);
-    // kernel_run_status("s2mm C1",s2mmC1_rhdl);
-    // kernel_run_status("s2mm C2",s2mmC2_rhdl);
-
-    // wait_status("mm2s A1",mm2sA1_rhdl);
-    // wait_status("mm2s B1",mm2sB1_rhdl);
-    // wait_status("mm2s A2",mm2sA2_rhdl);
-    // wait_status("mm2s B2",mm2sB2_rhdl);
-    // wait_status("s2mm C1",s2mmC1_rhdl);
-    // wait_status("s2mm C2",s2mmC2_rhdl);
-
 	//////////////////////////////////////////
 	// graph execution for AIE
 	//////////////////////////////////////////
 
 	//Obtains the graph handle from the XCLBIN that is loaded into the device
 	auto cghdl = xrt::graph(hw_ctx, "GMatMult");
-    // cghdl.reset();
 
     std::cout << "Graph run: " << NITER  <<  std::endl;
     for(int iter=0;iter<NITER;iter++)
@@ -242,11 +186,6 @@ int run(int argc, char* argv[]){
 	    cghdl.run(1);
         std::cout << "Should be running. Entering wait state..." <<  std::endl;
 
-        // if(iter==0)
-        // {
-        //     wait_status("s2mm C1",s2mmC1_rhdl);
-        //     wait_status("s2mm C2",s2mmC2_rhdl);
-        // }
         cghdl.wait();
         std::cout << "Iteration ended correctly." <<  std::endl <<  std::endl;
     }
@@ -273,6 +212,8 @@ int run(int argc, char* argv[]){
     auto state_s2mmC2 = s2mmC2_rhdl.wait();
     std::cout << "s2mm (C2) completed with status(" << state_s2mmC2 << ")\n";
 
+    C1_bohdl.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
+    C2_bohdl.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
 
     int match1 = 0;
     std::cout<< "Compare Ref and aie in 32b" << std::endl;
@@ -301,6 +242,9 @@ int run(int argc, char* argv[]){
         }
     }
 
+    // Printed here, not in main(): the XRT handles must still be alive, their
+    // destructors block under the hw_emu debugger.
+    std::cout << "TEST " << ((match1+match2) ? "FAILED" : "PASSED") << std::endl;
 
     return ((match1+match2)!=0);
 }
@@ -309,7 +253,6 @@ int main(int argc, char* argv[])
 {
     try {
         auto match = run(argc, argv);
-        std::cout << "TEST " << (match ? "FAILED" : "PASSED") << "\n";
         return (match ? EXIT_FAILURE :  EXIT_SUCCESS);
     }
     catch (std::exception const& e) {
