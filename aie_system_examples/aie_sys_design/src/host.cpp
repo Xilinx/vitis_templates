@@ -60,14 +60,12 @@ int main(int argc, char ** argv)
 
 	//////////////////////////////////////////
 	// input memory
-	// No cache no sync seems not working. Should ask SSW team to investigate.
-	//
     ////////////////////////////////////////
 
     xrt::bo in_bohdl(hw_ctx, input_size_in_bytes, mm2s_khdl.group_id(0));
     auto in_bomapped = in_bohdl.map<short int*>();
     memcpy(in_bomapped, cint16input, input_size_in_bytes);
-    printf("Input memory virtual addr 0x%llx\n", in_bomapped);
+    printf("Input memory virtual addr %p\n", (void*)in_bomapped);
 
 
 
@@ -78,7 +76,7 @@ int main(int argc, char ** argv)
 
 	xrt::bo out_bohdl(hw_ctx, output_size_in_bytes, s2mm_khdl.group_id(0));
     auto out_bomapped = out_bohdl.map<int*>();
-	printf("Output memory virtual addr 0x%llx\n", out_bomapped);
+	printf("Output memory virtual addr %p\n", (void*)out_bomapped);
 
 
 	//////////////////////////////////////////
