@@ -35,11 +35,7 @@
         "host_exe": "hello_world_xrt",
         "compiler": {
             "sources": [
-                "./src/cmdlineparser.cpp",
-                "./src/logger.cpp",
-                "./src/host.cpp",
-		"./src/cmdlineparser.h",
-		"./src/logger.h"
+                "./src/host.cpp"
             ],
 	    "options": "-std=c++17"
 		
@@ -63,7 +59,7 @@
     ],
     "launch": [
         {
-            "cmd_args": "-x BUILD/vadd.xclbin", 
+            "cmd_args": "BUILD/vadd.xclbin",
             "name": "generic launch for all flows"
         }
     ], 

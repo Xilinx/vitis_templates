@@ -6,31 +6,6 @@ SPDX-License-Identifier: MIT
 #include "kernels.h"
 #include <stdio.h>
 
-// template <typename T, int R, int C>
-// void printRegister(char *MatName, aie::vector<T, R * C> r)
-// {
-//     for (int i = 0; i < R; i++)
-//     {
-//         for (int j = 0; j < C; j++)
-//             printf("%10d ", (int)r[j + i * C]);
-//         printf("\n");
-//     }
-//     printf("\n");
-// }
-//
-// #define DISPLAY(a) printf(#a ": %d", a)
-// #define PrintMatrices                                            \
-//     printRegister<ITYPE, ATILES_ROWS, ATILES_COLS>("A", a); \
-//     printRegister<ITYPE, BTILES_ROWS, BTILES_COLS>("B", b); \
-//     printRegister<OTYPE, CTILES_ROWS, CTILES_COLS>("C", ctile.to_vector<OTYPE>(SHIFT_RESULT));
-// #define PrintMatrices_1                                            \
-//     printRegister<ITYPE, ATILES_ROWS, ATILES_COLS>("A1", a1); \
-//     printRegister<ITYPE, ATILES_ROWS, ATILES_COLS>("A2", a2); \
-//     printRegister<ITYPE, BTILES_ROWS, BTILES_COLS>("B", b); \
-//     printRegister<OTYPE, CTILES_ROWS, CTILES_COLS>("C1", ctile1.to_vector<OTYPE>(SHIFT_RESULT));\
-//     printRegister<OTYPE, CTILES_ROWS, CTILES_COLS>("C2", ctile2.to_vector<OTYPE>(SHIFT_RESULT));
-
-
 #if OPTIMIZED_SOURCE==0
 template<typename ITYPE,typename OTYPE, int SHIFT_RESULT>
 void ClassicMatMult(adf::input_buffer<ITYPE,adf::extents<adf::inherited_extent,adf::inherited_extent>> & __restrict inA,

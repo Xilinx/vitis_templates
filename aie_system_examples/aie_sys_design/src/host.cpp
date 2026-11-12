@@ -55,16 +55,17 @@ int main(int argc, char ** argv)
 
     //Manage/map input/output file
 
+	xrt::kernel mm2s_khdl(hw_ctx, "mm2s");
+	xrt::kernel s2mm_khdl(hw_ctx, "s2mm");
+
 	//////////////////////////////////////////
 	// input memory
-	// No cache no sync seems not working. Should ask SSW team to investigate.
-	//
     ////////////////////////////////////////
 
-    xrt::bo in_bohdl(hw_ctx, input_size_in_bytes, 0);
+    xrt::bo in_bohdl(hw_ctx, input_size_in_bytes, mm2s_khdl.group_id(0));
     auto in_bomapped = in_bohdl.map<short int*>();
     memcpy(in_bomapped, cint16input, input_size_in_bytes);
-    printf("Input memory virtual addr 0x%llx\n", in_bomapped);
+    printf("Input memory virtual addr %p\n", (void*)in_bomapped);
 
 
 
@@ -73,16 +74,15 @@ int main(int argc, char ** argv)
 	// output memory
 	//////////////////////////////////////////
 
-	xrt::bo out_bohdl(hw_ctx, output_size_in_bytes, 0);
+	xrt::bo out_bohdl(hw_ctx, output_size_in_bytes, s2mm_khdl.group_id(0));
     auto out_bomapped = out_bohdl.map<int*>();
-	printf("Output memory virtual addr 0x%llx\n", out_bomapped);
+	printf("Output memory virtual addr %p\n", (void*)out_bomapped);
 
 
 	//////////////////////////////////////////
 	// mm2s ip
 	//////////////////////////////////////////
 
-	xrt::kernel mm2s_khdl(hw_ctx, "mm2s");
 	xrt::run mm2s_rhdl(mm2s_khdl);
     mm2s_rhdl.set_arg(0, in_bohdl);
     mm2s_rhdl.set_arg(2, sizeIn);
@@ -93,7 +93,6 @@ int main(int argc, char ** argv)
 	// s2mm ip
 	//////////////////////////////////////////
 
-	xrt::kernel s2mm_khdl(hw_ctx, "s2mm");
 	xrt::run s2mm_rhdl(s2mm_khdl);
     s2mm_rhdl.set_arg(0, out_bohdl);
     s2mm_rhdl.set_arg(2, sizeOut);
